@@ -57,7 +57,7 @@ const Payroll = () => {
   return (
     <div className={classes.root}>
       <div className={classes.content}>
-        {payrollTable && <PayrollTable payroll={payroll} employee={employee} user={user} onHandleToggle={handleToggle} />}
+        {payrollTable && <PayrollTable payroll={payroll} employee={employee} user={user} duty={duty} onHandleToggle={handleToggle} />}
         {!payrollTable && (
           <EmployeePayrollTable
             payroll={payroll}

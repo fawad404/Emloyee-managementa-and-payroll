@@ -3,6 +3,7 @@ const router = require('express').Router();
 const Payroll = require('../../models/Payrolls');
 const Employee = require('../../models/Employees');
 const PayrollEmployee = require('../../models/PayrollEmployee');
+const Duty = require('../../models/Duties'); // Make sure this path is correct
 const verifyToken = require('../../utils/verifyToken');
 
 // Get all payroll
@@ -49,78 +50,89 @@ router.route('/add').post((req, res) => {
   const token = req.headers['x-access-token'] || req.headers['authorization'];
   verifyToken(token)
     .then(() => {
-      const { userId, empId, month } = req.body;
+      const { userId, empId, month, dutyId } = req.body;
       let errorMessage = '';
 
       // User validation
-      if (!empId || !month) {
+      if (!empId || !month || !dutyId) {
         errorMessage = 'Please enter all fields';
         return res.status(400).json(errorMessage);
       }
 
-      // Check if payroll already exist for employee
-      Payroll.findOne({ userId: userId, empId: empId, month: month }).then((payrolls) => {
-        if (payrolls) {
-          errorMessage = `Payroll for the month already exist`;
-          return res.status(400).json(errorMessage);
-        } else {
-          // Get employee info
-          Employee.findOne({ empId: empId })
-            .then((employee) => {
-              if (employee) {
-                const newPayroll = new Payroll({
-                  userId,
-                  empId,
-                  month,
-                  firstName: employee.firstName,
-                  lastName: employee.lastName,
-                });
+      // Fetch duty details
+      Duty.findById(dutyId)
+        .then((dutyDoc) => {
+          if (!dutyDoc) {
+            return res.status(400).json('Invalid duty ID');
+          }
 
-                // Save new payroll
-                newPayroll
-                  .save()
-                  .then((payrolls) => {
-                    // Save employee payroll
-                    const daysInMonth = getDaysInMonth(month.substring(0, 1), month.substring(month.length - 4));
-                    const newPayrollEmployee = Array(daysInMonth)
-                      .fill()
-                      .map((v, i) => ({
-                        userId,
-                        month: month,
-                        payId: payrolls.payId,
-                        day: ++i,
-                        empId: empId,
-                        duty: 'None',
-                        amount: 0,
-                      }));
+          // Check if payroll already exist for employee
+          Payroll.findOne({ userId: userId, empId: empId, month: month }).then((payrolls) => {
+            if (payrolls) {
+              errorMessage = `Payroll for the month already exist`;
+              return res.status(400).json(errorMessage);
+            } else {
+              // Get employee info
+              Employee.findOne({ empId: empId })
+                .then((employee) => {
+                  if (employee) {
+                    const newPayroll = new Payroll({
+                      userId,
+                      empId,
+                      month,
+                      firstName: employee.firstName,
+                      lastName: employee.lastName,
+                    });
 
-                    PayrollEmployee.insertMany(newPayrollEmployee)
-                      .then((empPayroll) => {
-                        return res.json({
-                          msg: `Payroll for ${newPayroll.firstName} ${newPayroll.lastName} created successful!`,
-                          payrolls,
-                        });
+                    // Save new payroll
+                    newPayroll
+                      .save()
+                      .then((payrolls) => {
+                        // Save employee payroll
+                        const daysInMonth = getDaysInMonth(month.substring(0, 1), month.substring(month.length - 4));
+                        const newPayrollEmployee = Array(daysInMonth)
+                          .fill()
+                          .map((v, i) => ({
+                            userId,
+                            month: month,
+                            payId: payrolls.payId,
+                            day: ++i,
+                            empId: empId,
+                            duty: dutyDoc.duty,      // Use duty name from Duty schema
+                            amount: dutyDoc.rate,    // Use rate from Duty schema
+                          }));
+
+                        PayrollEmployee.insertMany(newPayrollEmployee)
+                          .then((empPayroll) => {
+                            return res.json({
+                              msg: `Payroll for ${newPayroll.firstName} ${newPayroll.lastName} created successful!`,
+                              payrolls,
+                            });
+                          })
+                          .catch((err) => {
+                            errorMessage = 'This payroll could not be created at the moment. Please try again.';
+                            return res.status(400).json(errorMessage);
+                          });
                       })
                       .catch((err) => {
                         errorMessage = 'This payroll could not be created at the moment. Please try again.';
                         return res.status(400).json(errorMessage);
                       });
-                  })
-                  .catch((err) => {
+                  } else {
                     errorMessage = 'This payroll could not be created at the moment. Please try again.';
                     return res.status(400).json(errorMessage);
-                  });
-              } else {
-                errorMessage = 'This payroll could not be created at the moment. Please try again.';
-                return res.status(400).json(errorMessage);
-              }
-            })
-            .catch((err) => {
-              errorMessage = 'This payroll could not be created at the moment. Please try again.';
-              return res.status(400).json(errorMessage);
-            });
-        }
-      });
+                  }
+                })
+                .catch((err) => {
+                  errorMessage = 'This payroll could not be created at the moment. Please try again.';
+                  return res.status(400).json(errorMessage);
+                });
+            }
+          });
+        })
+        .catch((err) => {
+          return res.status(400).json('Error fetching duty');
+        });
     })
     .catch((err) => {
       return res.status(400).json(err);

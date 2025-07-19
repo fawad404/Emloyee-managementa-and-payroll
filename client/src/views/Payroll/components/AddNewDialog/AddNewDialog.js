@@ -42,10 +42,11 @@ const useStyles = makeStyles((theme) => ({
 const AddNewDialog = (props) => {
   const classes = useStyles();
   const dispatch = useDispatch();
-  const { open, onHandleClose, onHandleSetPayrolls, employee, user } = props;
+  const { open, onHandleClose, onHandleSetPayrolls, employee, user, duty } = props;
   const [values, setValues] = useState({
     empId: '',
     month: new Date(),
+    dutyId: '', // <-- Add dutyId to state
   });
 
   const handleClose = () => {
@@ -56,6 +57,13 @@ const AddNewDialog = (props) => {
     setValues({
       ...values,
       [event.target.name]: event.target.value,
+    });
+  };
+
+  const handleDutyChange = (event) => {
+    setValues({
+      ...values,
+      dutyId: event.target.value,
     });
   };
 
@@ -72,6 +80,7 @@ const AddNewDialog = (props) => {
     const newPayroll = {
       empId: values.empId,
       month: (values.month.getMonth() + 1).toString() + ',' + values.month.getUTCFullYear().toString(),
+      dutyId: values.dutyId, // <-- Send dutyId to backend
     };
 
     dispatch(addPayroll(newPayroll))
@@ -106,6 +115,23 @@ const AddNewDialog = (props) => {
                 ))}
               </Select>
             </FormControl>
+            <FormControl className={classes.formControl}>
+              <InputLabel>Duty</InputLabel>
+              <Select
+                value={values.dutyId}
+                onChange={handleDutyChange}
+                inputProps={{
+                  name: 'dutyId',
+                  id: 'dutyId',
+                }}
+              >
+                {duty.map((d) => (
+                  <MenuItem value={d._id} key={d._id}>
+                    {d.duty}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
             <FormControlLabel
               className={classes.formControlLabel}
               control={
@@ -129,7 +155,7 @@ const AddNewDialog = (props) => {
           <Button onClick={handleClose} color="primary">
             Cancel
           </Button>
-          <Button onClick={handleAddNew} color="primary" disabled={!values.empId}>
+          <Button onClick={handleAddNew} color="primary" disabled={!values.empId || !values.dutyId}>
             Add
           </Button>
         </DialogActions>

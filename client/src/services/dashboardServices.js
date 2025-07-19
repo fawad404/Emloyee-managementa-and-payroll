@@ -10,6 +10,7 @@ export const getAllPayrollEmployees = () => (dispatch) => {
     .post('/payrolls/getAllPayrollEmployees', user)
     .then((res) => {
       dispatch(setAllPayrollEmployees(res.data));
+      console.log("sdasd", res.data)
     })
     .catch((err) => {
       console.log('err', err);
